@@ -6,5 +6,32 @@ In order to provide a reasonably interesting network configuration for logging, 
 
 VPC flow logs will be collated into an S3 bucket, and exposed to Athena for ad-hoc queries.
 
+## Use
+
+### Bootstrap
+The first thing that needs to be done is to bootstrap up some resources for terraform. The assets in the `bootstrap` folder do this. They set up an EC2 SSH Key Pair, and a DynamoDB table and S3 bucket for storing terraform state.
+
+Within the `bootstrap` folder, copy `env.rc.template` to `env.rc` and supply the necessary settings.
+
+Next, execute `bootstrap.sh`, you should be able to see output similar to the following at the end of the run:
+
+```
+Apply complete! Resources: 3 added, 0 changed, 0 destroyed.
+
+Outputs:
+
+bucket_arn = arn:aws:s3:::terraform-state20180823151609662300000001
+key_arn = arn:aws:kms:eu-west-2:889199313043:key/2e84e858-a65f-4e80-949f-34a6cef20870
+project_tags = {
+  client = Internal
+  owner = rahook
+  project = flowlogs-test
+}
+table_arn = arn:aws:dynamodb:eu-west-2:889199313043:table/terraform-state-lock
+table_name = terraform-state-lock
+```
+
+You should also be able to see a new `.PEM` file in the `data` directory.
+
 ## Todo
 - SSE on the S3 bucket
