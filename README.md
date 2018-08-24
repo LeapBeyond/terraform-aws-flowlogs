@@ -100,5 +100,7 @@ content-length: 606
 [ec2-user@ip-172-30-10-28 ~]$
 ```
 
+*NOTE* terraform does not set expiry on created CloudWatch log group, recommend setting it to something sensible in the console
+
 ## Todo
 - SSE on the S3 bucket

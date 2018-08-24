@@ -147,8 +147,8 @@ resource "aws_network_acl_rule" "nat_ephemeral_out" {
   protocol       = "tcp"
   rule_action    = "allow"
   cidr_block     = "${var.ec2_subnet_cidr}"
-  from_port   = 1024
-  to_port     = 65535
+  from_port      = 1024
+  to_port        = 65535
 }
 
 resource "aws_network_acl_rule" "nat_ssh_out_to_ssh" {
@@ -170,8 +170,8 @@ resource "aws_network_acl_rule" "nat_ephemeral_in" {
   protocol       = "tcp"
   rule_action    = "allow"
   cidr_block     = "0.0.0.0/0"
-  from_port   = 1024
-  to_port     = 65535
+  from_port      = 1024
+  to_port        = 65535
 }
 
 resource "aws_network_acl_rule" "nat_ssh_in" {
@@ -232,8 +232,8 @@ resource "aws_network_acl_rule" "ec2_ephemeral_out" {
   protocol       = "tcp"
   rule_action    = "allow"
   cidr_block     = "${var.nat_subnet_cidr}"
-  from_port   = 1024
-  to_port     = 65535
+  from_port      = 1024
+  to_port        = 65535
 }
 
 resource "aws_network_acl_rule" "ec2_ephemeral_in" {
@@ -243,8 +243,8 @@ resource "aws_network_acl_rule" "ec2_ephemeral_in" {
   protocol       = "tcp"
   rule_action    = "allow"
   cidr_block     = "0.0.0.0/0"
-  from_port   = 1024
-  to_port     = 65535
+  from_port      = 1024
+  to_port        = 65535
 }
 
 resource "aws_network_acl_rule" "ec2_ssh_in" {
@@ -254,8 +254,8 @@ resource "aws_network_acl_rule" "ec2_ssh_in" {
   protocol       = "tcp"
   rule_action    = "allow"
   cidr_block     = "${var.nat_subnet_cidr}"
-  from_port   = 22
-  to_port     = 22
+  from_port      = 22
+  to_port        = 22
 }
 
 resource "aws_security_group" "ec2_ssh_access" {
@@ -395,7 +395,7 @@ resource "aws_instance" "bastion" {
   vpc_security_group_ids = [
     "${aws_security_group.bastion_ssh_access.id}",
     "${aws_security_group.bastion_ssh_out.id}",
-    "${aws_security_group.bastion_http_out.id}"
+    "${aws_security_group.bastion_http_out.id}",
   ]
 
   root_block_device = {
@@ -411,27 +411,27 @@ resource "aws_instance" "bastion" {
 yum update -y -q
 EOF
 
-provisioner "file" {
-  source      = "${path.root}/../data/${var.ec2_key}.pem"
-  destination = "/home/${var.ec2_user}/.ssh/${var.ec2_key}.pem"
+  provisioner "file" {
+    source      = "${path.root}/../data/${var.ec2_key}.pem"
+    destination = "/home/${var.ec2_user}/.ssh/${var.ec2_key}.pem"
 
-  connection {
-    type        = "ssh"
-    user        = "${var.ec2_user}"
-    private_key = "${file("${path.root}/../data/${var.bastion_key}.pem")}"
-    timeout     = "5m"
+    connection {
+      type        = "ssh"
+      user        = "${var.ec2_user}"
+      private_key = "${file("${path.root}/../data/${var.bastion_key}.pem")}"
+      timeout     = "5m"
+    }
   }
-}
 
-provisioner "remote-exec" {
-  inline = [
-    "chmod 0400 /home/${var.ec2_user}/.ssh/*.pem",
-  ]
+  provisioner "remote-exec" {
+    inline = [
+      "chmod 0400 /home/${var.ec2_user}/.ssh/*.pem",
+    ]
 
-  connection {
-    type        = "ssh"
-    user        = "${var.ec2_user}"
-    private_key = "${file("${path.root}/../data/${var.bastion_key}.pem")}"
+    connection {
+      type        = "ssh"
+      user        = "${var.ec2_user}"
+      private_key = "${file("${path.root}/../data/${var.bastion_key}.pem")}"
+    }
   }
-}
 }
