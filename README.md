@@ -35,5 +35,70 @@ You should also be able to see a new `.PEM` file in the `data` directory.
 
 Finally, update the `platform/backend.tf` file with the bucket and table ARNs as required - all values in this file must correspond to the values from the bootstrap script.
 
+## Platform
+ - change into folder, setup variables, do terraform init, terraform plan
+
+Once the instances are available, you should be able to SSH into the "bastion" instance, and thence to the "test" instance, and exercise HTTP and HTTPS from both:
+```
+$ ssh -i bastion.pem ec2-user@ec2-35-176-219-165.eu-west-2.compute.amazonaws.com
+[ec2-user@ip-172-30-10-102 ~]$ curl -I http://example.net
+HTTP/1.1 200 OK
+Content-Encoding: gzip
+Accept-Ranges: bytes
+Cache-Control: max-age=604800
+Content-Type: text/html; charset=UTF-8
+Date: Fri, 24 Aug 2018 14:39:44 GMT
+Etag: "1541025663+ident"
+Expires: Fri, 31 Aug 2018 14:39:44 GMT
+Last-Modified: Fri, 09 Aug 2013 23:54:35 GMT
+Server: ECS (dca/2486)
+X-Cache: HIT
+Content-Length: 606
+
+[ec2-user@ip-172-30-10-102 ~]$ curl -I https://example.com
+HTTP/2 200
+content-encoding: gzip
+accept-ranges: bytes
+cache-control: max-age=604800
+content-type: text/html; charset=UTF-8
+date: Fri, 24 Aug 2018 14:39:51 GMT
+etag: "1541025663"
+expires: Fri, 31 Aug 2018 14:39:51 GMT
+last-modified: Fri, 09 Aug 2013 23:54:35 GMT
+server: ECS (dca/2454)
+x-cache: HIT
+content-length: 606
+
+[ec2-user@ip-172-30-10-102 ~]$ ssh -i ~/.ssh/vpclogstest.pem ec2-user@ip-172-30-10-28.eu-west-2.compute.internal
+[ec2-user@ip-172-30-10-28 ~]$ curl -I http://example.net
+HTTP/1.1 200 OK
+Accept-Ranges: bytes
+Cache-Control: max-age=604800
+Content-Type: text/html; charset=UTF-8
+Date: Fri, 24 Aug 2018 14:40:03 GMT
+Etag: "1541025663"
+Expires: Fri, 31 Aug 2018 14:40:03 GMT
+Last-Modified: Fri, 09 Aug 2013 23:54:35 GMT
+Server: ECS (dca/249F)
+X-Cache: HIT
+Content-Length: 1270
+
+[ec2-user@ip-172-30-10-28 ~]$ curl -I https://example.com
+HTTP/2 200
+content-encoding: gzip
+accept-ranges: bytes
+cache-control: max-age=604800
+content-type: text/html; charset=UTF-8
+date: Fri, 24 Aug 2018 14:40:08 GMT
+etag: "1541025663"
+expires: Fri, 31 Aug 2018 14:40:08 GMT
+last-modified: Fri, 09 Aug 2013 23:54:35 GMT
+server: ECS (dca/532C)
+x-cache: HIT
+content-length: 606
+
+[ec2-user@ip-172-30-10-28 ~]$
+```
+
 ## Todo
 - SSE on the S3 bucket
