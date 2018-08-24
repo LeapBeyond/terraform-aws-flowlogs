@@ -35,7 +35,7 @@ resource "aws_internet_gateway" "testgateway" {
 resource "aws_subnet" "ec2" {
   vpc_id                  = "${aws_vpc.test_vpc.id}"
   cidr_block              = "${var.ec2_subnet_cidr}"
-  map_public_ip_on_launch = true
+  map_public_ip_on_launch = false
   tags                    = "${merge(map("Name", "flowlogs-ec2"), var.tags)}"
 }
 
@@ -93,7 +93,7 @@ resource "aws_route_table_association" "ec2" {
 resource "aws_network_acl" "nat" {
   vpc_id     = "${aws_vpc.test_vpc.id}"
   subnet_ids = ["${aws_subnet.nat.id}"]
-  tags = "${merge(map("Name", "flowlogs-nat"), var.tags)}"
+  tags       = "${merge(map("Name", "flowlogs-nat"), var.tags)}"
 }
 
 resource "aws_network_acl_rule" "nat_http_out" {
@@ -118,6 +118,17 @@ resource "aws_network_acl_rule" "nat_https_out" {
   to_port        = 443
 }
 
+resource "aws_network_acl_rule" "nat_ephemeral_out" {
+  network_acl_id = "${aws_network_acl.nat.id}"
+  rule_number    = 200
+  egress         = true
+  protocol       = "tcp"
+  rule_action    = "allow"
+  cidr_block     = "0.0.0.0/0"
+  from_port   = 1024
+  to_port     = 65535
+}
+
 resource "aws_network_acl_rule" "nat_ephemeral_in" {
   network_acl_id = "${aws_network_acl.nat.id}"
   rule_number    = 100
@@ -125,14 +136,37 @@ resource "aws_network_acl_rule" "nat_ephemeral_in" {
   protocol       = "tcp"
   rule_action    = "allow"
   cidr_block     = "0.0.0.0/0"
-  from_port      = 32768
-  to_port        = 61000
+  from_port   = 1024
+  to_port     = 65535
+}
+
+resource "aws_network_acl_rule" "nat_ssh_in" {
+  count          = "${length(var.ssh_inbound)}"
+  network_acl_id = "${aws_network_acl.nat.id}"
+  rule_number    = "${200 + count.index}"
+  egress         = false
+  protocol       = "tcp"
+  rule_action    = "allow"
+  cidr_block     = "${var.ssh_inbound[count.index]}"
+  from_port      = 22
+  to_port        = 22
+}
+
+resource "aws_network_acl_rule" "nat_ssh_out" {
+  network_acl_id = "${aws_network_acl.nat.id}"
+  rule_number    = 300
+  egress         = true
+  protocol       = "tcp"
+  rule_action    = "allow"
+  cidr_block     = "${var.ec2_subnet_cidr}"
+  from_port      = 22
+  to_port        = 22
 }
 
 resource "aws_network_acl" "ec2" {
   vpc_id     = "${aws_vpc.test_vpc.id}"
   subnet_ids = ["${aws_subnet.ec2.id}"]
-  tags = "${merge(map("Name", "flowlogs-ec2"), var.tags)}"
+  tags       = "${merge(map("Name", "flowlogs-ec2"), var.tags)}"
 }
 
 resource "aws_network_acl_rule" "ec2_http_out" {
@@ -157,6 +191,17 @@ resource "aws_network_acl_rule" "ec2_https_out" {
   to_port        = 443
 }
 
+resource "aws_network_acl_rule" "ec2_ephemeral_out" {
+  network_acl_id = "${aws_network_acl.ec2.id}"
+  rule_number    = 110
+  egress         = true
+  protocol       = "tcp"
+  rule_action    = "allow"
+  cidr_block     = "0.0.0.0/0"
+  from_port   = 1024
+  to_port     = 65535
+}
+
 resource "aws_network_acl_rule" "ec2_ephemeral_in" {
   network_acl_id = "${aws_network_acl.ec2.id}"
   rule_number    = 100
@@ -164,22 +209,32 @@ resource "aws_network_acl_rule" "ec2_ephemeral_in" {
   protocol       = "tcp"
   rule_action    = "allow"
   cidr_block     = "0.0.0.0/0"
-  from_port      = 32768
-  to_port        = 61000
+  from_port   = 1024
+  to_port     = 65535
 }
 
+resource "aws_network_acl_rule" "ec2_ssh_in" {
+  network_acl_id = "${aws_network_acl.ec2.id}"
+  rule_number    = 101
+  egress         = false
+  protocol       = "tcp"
+  rule_action    = "allow"
+  cidr_block     = "${var.nat_subnet_cidr}"
+  from_port   = 22
+  to_port     = 22
+}
 
 resource "aws_security_group" "ec2_ssh_access" {
   name        = "flowlogs-ec2-ssh"
   description = "allows ssh access to the test host"
   vpc_id      = "${aws_vpc.test_vpc.id}"
-  tags = "${merge(map("Name", "flowlogs-ec2-ssh"), var.tags)}"
+  tags        = "${merge(map("Name", "flowlogs-ec2-ssh"), var.tags)}"
 
   ingress {
     from_port   = 22
     to_port     = 22
     protocol    = "tcp"
-    cidr_blocks = ["${var.ssh_inbound}"]
+    cidr_blocks = ["${var.nat_subnet_cidr}"]
   }
 }
 
@@ -187,7 +242,7 @@ resource "aws_security_group" "http_out_access" {
   name        = "flowlogs-http-out"
   description = "allows instance to reach out on port 80 and 443"
   vpc_id      = "${aws_vpc.test_vpc.id}"
-  tags = "${merge(map("Name", "flowlogs-http_out_access"), var.tags)}"
+  tags        = "${merge(map("Name", "flowlogs-http_out_access"), var.tags)}"
 
   egress {
     from_port   = 80
@@ -204,8 +259,36 @@ resource "aws_security_group" "http_out_access" {
   }
 }
 
+resource "aws_security_group" "bastion_ssh_access" {
+  name        = "flowlogs-bastion-ssh-in"
+  description = "allows ssh access to the bastion host"
+  vpc_id      = "${aws_vpc.test_vpc.id}"
+  tags        = "${merge(map("Name", "flowlogs-bastion-ssh"), var.tags)}"
+
+  ingress {
+    from_port   = 22
+    to_port     = 22
+    protocol    = "tcp"
+    cidr_blocks = ["${var.ssh_inbound}"]
+  }
+}
+
+resource "aws_security_group" "bastion_ssh_out" {
+  name        = "flowlogs-bastion-ssh-out"
+  description = "allows ssh from the bastion host"
+  vpc_id      = "${aws_vpc.test_vpc.id}"
+  tags        = "${merge(map("Name", "flowlogs-bastion-ssh"), var.tags)}"
+
+  egress {
+    from_port   = 22
+    to_port     = 22
+    protocol    = "tcp"
+    cidr_blocks = ["${var.ec2_subnet_cidr}"]
+  }
+}
+
 # --------------------------------------------------------------------------------------------------------------
-# EC2 instance
+# EC2 instances
 # --------------------------------------------------------------------------------------------------------------
 data "aws_ami" "target_ami" {
   most_recent = true
@@ -222,10 +305,11 @@ data "aws_ami" "target_ami" {
 }
 
 resource "aws_instance" "test" {
-  ami           = "${data.aws_ami.target_ami.id}"
-  instance_type = "${var.instance_type}"
-  key_name      = "${var.ec2_key}"
-  subnet_id     = "${aws_subnet.ec2.id}"
+  ami                         = "${data.aws_ami.target_ami.id}"
+  instance_type               = "${var.instance_type}"
+  key_name                    = "${var.ec2_key}"
+  subnet_id                   = "${aws_subnet.ec2.id}"
+  associate_public_ip_address = false
 
   vpc_security_group_ids = [
     "${aws_security_group.ec2_ssh_access.id}",
@@ -244,4 +328,54 @@ resource "aws_instance" "test" {
 #!/bin/bash
 yum update -y -q
 EOF
+}
+
+resource "aws_instance" "bastion" {
+  ami                         = "${data.aws_ami.target_ami.id}"
+  instance_type               = "${var.instance_type}"
+  key_name                    = "${var.bastion_key}"
+  subnet_id                   = "${aws_subnet.nat.id}"
+  associate_public_ip_address = true
+
+  vpc_security_group_ids = [
+    "${aws_security_group.bastion_ssh_access.id}",
+    "${aws_security_group.bastion_ssh_out.id}",
+  ]
+
+  root_block_device = {
+    volume_type = "gp2"
+    volume_size = "${var.root_vol_size}"
+  }
+
+  tags        = "${merge(map("Name", "flowlogs-bastion"), var.tags)}"
+  volume_tags = "${var.tags}"
+
+  user_data = <<EOF
+#!/bin/bash
+yum update -y -q
+EOF
+
+provisioner "file" {
+  source      = "${path.root}/../data/${var.ec2_key}.pem"
+  destination = "/home/${var.ec2_user}/.ssh/${var.ec2_key}.pem"
+
+  connection {
+    type        = "ssh"
+    user        = "${var.ec2_user}"
+    private_key = "${file("${path.root}/../data/${var.bastion_key}.pem")}"
+    timeout     = "5m"
+  }
+}
+
+provisioner "remote-exec" {
+  inline = [
+    "chmod 0400 /home/${var.ec2_user}/.ssh/*.pem",
+  ]
+
+  connection {
+    type        = "ssh"
+    user        = "${var.ec2_user}"
+    private_key = "${file("${path.root}/../data/${var.bastion_key}.pem")}"
+  }
+}
 }

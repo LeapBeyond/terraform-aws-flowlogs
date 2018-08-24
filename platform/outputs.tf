@@ -3,7 +3,7 @@ output "nat_ip" {
 }
 
 output "public_dns" {
-  value = "${aws_instance.test.public_dns}"
+  value = "${aws_instance.bastion.public_dns}"
 }
 
 output "private_dns" {
@@ -11,5 +11,5 @@ output "private_dns" {
 }
 
 output "connect_string" {
-  value = "ssh -i ${var.ec2_key}.pem ${var.ec2_user}@${aws_instance.test.public_dns}"
+  value = "ssh -i ${var.bastion_key}.pem ${var.ec2_user}@${aws_instance.bastion.public_dns}"
 }

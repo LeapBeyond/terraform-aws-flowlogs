@@ -57,6 +57,7 @@ variable "aws_profile" {}
 variable "aws_region" {}
 
 variable "ec2_key" {}
+variable "bastion_key" {}
 
 variable "ssh_inbound" {
   type = "list"
