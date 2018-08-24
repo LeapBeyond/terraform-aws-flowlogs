@@ -118,15 +118,49 @@ resource "aws_network_acl_rule" "nat_https_out" {
   to_port        = 443
 }
 
+resource "aws_network_acl_rule" "nat_http_in" {
+  network_acl_id = "${aws_network_acl.nat.id}"
+  rule_number    = 300
+  egress         = false
+  protocol       = "tcp"
+  rule_action    = "allow"
+  cidr_block     = "${var.ec2_subnet_cidr}"
+  from_port      = 80
+  to_port        = 80
+}
+
+resource "aws_network_acl_rule" "nat_https_in" {
+  network_acl_id = "${aws_network_acl.nat.id}"
+  rule_number    = 301
+  egress         = true
+  protocol       = "tcp"
+  rule_action    = "allow"
+  cidr_block     = "${var.ec2_subnet_cidr}"
+  from_port      = 443
+  to_port        = 443
+}
+
 resource "aws_network_acl_rule" "nat_ephemeral_out" {
   network_acl_id = "${aws_network_acl.nat.id}"
   rule_number    = 200
   egress         = true
   protocol       = "tcp"
   rule_action    = "allow"
-  cidr_block     = "0.0.0.0/0"
+  cidr_block     = "${var.ec2_subnet_cidr}"
   from_port   = 1024
   to_port     = 65535
+}
+
+resource "aws_network_acl_rule" "nat_ssh_out_to_ssh" {
+  count          = "${length(var.ssh_inbound)}"
+  network_acl_id = "${aws_network_acl.nat.id}"
+  rule_number    = "${2100 + count.index}"
+  egress         = true
+  protocol       = "tcp"
+  rule_action    = "allow"
+  cidr_block     = "${var.ssh_inbound[count.index]}"
+  from_port      = 1024
+  to_port        = 65535
 }
 
 resource "aws_network_acl_rule" "nat_ephemeral_in" {
@@ -197,7 +231,7 @@ resource "aws_network_acl_rule" "ec2_ephemeral_out" {
   egress         = true
   protocol       = "tcp"
   rule_action    = "allow"
-  cidr_block     = "0.0.0.0/0"
+  cidr_block     = "${var.nat_subnet_cidr}"
   from_port   = 1024
   to_port     = 65535
 }
@@ -287,6 +321,27 @@ resource "aws_security_group" "bastion_ssh_out" {
   }
 }
 
+resource "aws_security_group" "bastion_http_out" {
+  name        = "flowlogs-bastion-http-out"
+  description = "allows http and https from the bastion host"
+  vpc_id      = "${aws_vpc.test_vpc.id}"
+  tags        = "${merge(map("Name", "flowlogs-bastion-ssh"), var.tags)}"
+
+  egress {
+    from_port   = 80
+    to_port     = 80
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  egress {
+    from_port   = 443
+    to_port     = 443
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+}
+
 # --------------------------------------------------------------------------------------------------------------
 # EC2 instances
 # --------------------------------------------------------------------------------------------------------------
@@ -340,6 +395,7 @@ resource "aws_instance" "bastion" {
   vpc_security_group_ids = [
     "${aws_security_group.bastion_ssh_access.id}",
     "${aws_security_group.bastion_ssh_out.id}",
+    "${aws_security_group.bastion_http_out.id}"
   ]
 
   root_block_device = {
