@@ -33,5 +33,7 @@ table_name = terraform-state-lock
 
 You should also be able to see a new `.PEM` file in the `data` directory.
 
+Finally, update the `platform/backend.tf` file with the bucket and table ARNs as required - all values in this file must correspond to the values from the bootstrap script.
+
 ## Todo
 - SSE on the S3 bucket

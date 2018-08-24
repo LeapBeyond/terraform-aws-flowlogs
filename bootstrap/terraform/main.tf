@@ -9,6 +9,11 @@ resource "aws_kms_key" "state" {
   tags = "${merge(map("Name", "terraform_state"), var.tags)}"
 }
 
+resource "aws_kms_alias" "a" {
+  name          = "alias/terraform_state"
+  target_key_id = "${aws_kms_key.state.key_id}"
+}
+
 resource "aws_dynamodb_table" "dynamodb-terraform-state-lock" {
   name           = "${var.lock_table_name}"
   hash_key       = "LockID"
