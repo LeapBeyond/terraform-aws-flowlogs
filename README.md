@@ -104,3 +104,6 @@ content-length: 606
 
 ## Todo
 - SSE on the S3 bucket
+- the athena table and s3 bucket are set with force-destroy = true, for convenience, but not good idea for real use
+- athena result encryption https://docs.aws.amazon.com/athena/latest/ug/encryption.html#encrypting-query-results-stored-in-s3
+- parquet??? https://engineering.opsgenie.com/analyzing-aws-vpc-flow-logs-using-apache-parquet-files-and-amazon-athena-27f8025371fa
